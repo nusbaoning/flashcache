@@ -8,19 +8,27 @@ output : a ranklist of traces, the request lists in time windows of each blocks
 '''
 
 import sys
+import math
+import mts_cache_algorithm
+import numpy
 
 LINE_LENGTH=48
 IGNORE_CASES=["m", "P", "U", "X", "UT"]
-
+ucln = 568921
+# for 1min fileserver 29486
+ssdSize = ucln>>5
 def loadfile(filename):
     fin = open(filename, 'r')
     # fop = open("./filebench_fileserver/test1_copy.txt", 'w')
-    i = 0
-    e1 = 0
-    l1 = []
+    i = 0   
+    # tmp = 0 
     e2 = 0
     l2 = []
-    action_dict = {}
+    ssd = mts_cache_algorithm.LRU(size=ssdSize)
+    NrSsdHit = 0
+    LtCacheUp = []
+    rwTypeDict = {}
+    # rwset = set([])
     ios = 0
     for line in fin.readlines():
         # fop.write(line)
@@ -59,12 +67,45 @@ def loadfile(filename):
             l2.append(i)
             continue
 
+        # rwset.add(rw)
+
         blocks = message.strip().split()
-        b_st = blocks[0]
-        nrb = blocks[2]
+        b_st = int(blocks[0])
+        nrb = int(blocks[2])
         blkey = (b_st, nrb, rw)
         # print(i, nrb, blocks)
         ios = ios + int(nrb)
+
+        # parse 512B block to 4KB page
+        # print(b_st, nrb)
+        # print(b_st>>3, math.ceil(nrb/8))
+        start = b_st>>3
+        end = start + int(math.ceil(nrb/8))
+        # print(start, end)
+        if "W" in rw:
+            r = 0
+            w = True
+        elif "R" in rw:
+            r = 1
+            w = False
+        else:
+            print("error", rw)
+
+        for page in range(start,end):
+            if page in rwTypeDict:
+                (rv,wv) = rwTypeDict[page]
+            else:
+                rv, wv = (0, 0)
+            rwTypeDict[page] = (rv+r, wv+1-r)
+            ssd.is_hit(page)
+            node = ssd.update_cache(page, w)
+            if node is not None:
+                if node.hit is True:
+                    NrSsdHit += 1
+                LtCacheUp.append(node.update)
+
+        
+        
 
         # if blkey in action_dict:
         #     blv = action_dict[blkey]
@@ -104,11 +145,31 @@ def loadfile(filename):
     #   if limit > thresh:
     #       limitLarge += 1
     print("end", i)
-    print("e1=", e1, "e2=", e2)
-    print("l1=", l1)
+    print("e2=", e2)
     print("l2=", l2)
     print("number of io blocks=", ios)
+    # print(rwset)
     fin.close()
+    ro = 0
+    wo = 0
+    ucln = len(rwTypeDict)
+    for key in rwTypeDict.keys():
+        rv, wv = rwTypeDict[key]
+        total = rv+wv
+        if rv/total >= 0.95:
+            ro += 1
+        elif wv/total >= 0.95:
+            wo += 1
+    l = ssd.get_top_n(ssdSize)
+    for hit,update in l:
+        if hit is True:
+            NrSsdHit += 1
+        LtCacheUp.append(update)
+    
+    print "read/write type", ro, wo, ucln 
+    print "hit ratio", NrSsdHit, ssd.update, float(NrSsdHit)/ssd.update
+    # print LtCacheUp
+    print "write numbers", numpy.mean(LtCacheUp), numpy.var(LtCacheUp)
     # for key in action_dict.keys():
     #     value = action_dict[key]
     #     if "Q" not in value:
@@ -116,4 +177,4 @@ def loadfile(filename):
 
     # fop.close()
 
-loadfile("./filebench_fileserver/test1.txt")
+loadfile("./filebench_fileserver_100min/test1.txt")
