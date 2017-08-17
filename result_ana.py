@@ -14,13 +14,54 @@ import numpy
 
 LINE_LENGTH=48
 IGNORE_CASES=["m", "P", "U", "X", "UT"]
-ucln = 568921
+ucln = 1030900
 # for 1min fileserver 29486
+# for 100min fileserver 568921
+
+# result for 100min fileserver
+# ('number of io blocks=', 29986400)
+# read/write type 50271 516332 568921
+# hit ratio 59123 3631110 0.0162823489236
+# write numbers 1.03221769652 0.325566832334
+
+# result for 4G memory 100min fileserver
+# ('number of io blocks=', 218169232)
+# read/write type 0.0189358812688 0.689398583762 1030900
+# hit ratio 32215 1053650 26110062 0.0403541745707
+# write numbers 1.04437132321 0.0525101830839
+
+
 ssdSize = ucln>>5
+
+def parsefile(filename):
+    fin = open(filename, 'r')
+    fop = open("./filebench_fileserver/text1_shorter2.txt", 'w')
+    print "open file"
+    i = 0
+    nrline = 0
+    for line in fin.readlines():            
+        items = line.strip().split()
+        i+=1
+        if(len(items)<7):
+            break
+        action = items[5]
+        rw = items[6]
+        if action != "Q":
+            continue
+        # if "+" not in message:
+        #     continue
+        
+        if i%10000==0:
+            print i, 1.0*i/34378018
+        fop.write(line)
+    fin.close()
+    fop.close()
+
 def loadfile(filename):
     fin = open(filename, 'r')
     # fop = open("./filebench_fileserver/test1_copy.txt", 'w')
     i = 0   
+    j = 0
     # tmp = 0 
     e2 = 0
     l2 = []
@@ -56,6 +97,8 @@ def loadfile(filename):
         if action != "Q":
             continue
 
+
+        j += 1
         # if rw == "N" or action in IGNORE_CASES:
         #     if "+" in message:
         #         e1 += 1
@@ -144,7 +187,7 @@ def loadfile(filename):
     #       half += 1
     #   if limit > thresh:
     #       limitLarge += 1
-    print("end", i)
+    print "end", i, j
     print("e2=", e2)
     print("l2=", l2)
     print("number of io blocks=", ios)
@@ -166,8 +209,8 @@ def loadfile(filename):
             NrSsdHit += 1
         LtCacheUp.append(update)
     
-    print "read/write type", ro, wo, ucln 
-    print "hit ratio", NrSsdHit, ssd.update, float(NrSsdHit)/ssd.update
+    print "read/write type", 1.0*ro/ucln, 1.0*wo/ucln, ucln 
+    print "hit ratio", ssdSize, NrSsdHit, ssd.update, float(NrSsdHit)/ssd.update
     # print LtCacheUp
     print "write numbers", numpy.mean(LtCacheUp), numpy.var(LtCacheUp)
     # for key in action_dict.keys():
@@ -177,4 +220,6 @@ def loadfile(filename):
 
     # fop.close()
 
-loadfile("./filebench_fileserver_100min/test1.txt")
+loadfile("./filebench_fileserver_4Gmem_100min/test1_short.txt")
+# loadfile("./filebench_fileserver/test1_short.txt")
+# parsefile("./filebench_fileserver/test1.txt")
