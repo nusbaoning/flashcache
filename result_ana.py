@@ -11,6 +11,7 @@ import sys
 import math
 import mts_cache_algorithm
 import numpy
+from subprocess import call
 
 LINE_LENGTH=48
 IGNORE_CASES=["m", "P", "U", "X", "UT"]
@@ -219,6 +220,10 @@ def loadfile(filename):
     #         print("key-value error", key, value)
 
     # fop.close()
+
+def filter_result():
+    
+call(["ls", "-l"])
 
 loadfile("./filebench_fileserver_4Gmem_100min/test1_short.txt")
 # loadfile("./filebench_fileserver/test1_short.txt")
